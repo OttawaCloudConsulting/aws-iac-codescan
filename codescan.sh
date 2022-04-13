@@ -1,5 +1,24 @@
 #!/bin/bash
 
+## Execute this file as ./code-scan.sh
+## All Variables are optional
+## Example:  code-scan.sh --project "my_project" --fmt "false" --terrascan "true"
+##
+## --project "" | Defaults to pwd name
+## --planfile "" | Terraform Plan filename
+## --planjson "" | Terraform Plan JSON version filename
+## --scanoutput "" | Scan Output folder.  Defaults to ./codescan_report/
+## --terrascanoutput "" | Terrascan Output Filename
+## --severity "" | Minimum Severity (tfsec and terrascan support only)
+## --fmt "true" | Perform terraform format
+## --validate "true" | Validate Terraform
+## --tflint "true" | Lint Terraform files
+## --checkov "true" | Perform Checkov scan
+## --terrascan "true" | Perform terrascan scan
+## --tfsec "true" | Perform tfsec scan
+## --cleanup "true" | Delete files
+
+
 project=${project:-$(basename "${PWD}")}
 planfile=${planfile:-'tf.plan'}
 planjson=${planjson:-'tf_plan.json'}
@@ -7,6 +26,15 @@ scanoutput=${scanoutput:-'codescan_report'}
 terrascanoutput=${terrascanoutput:-'terrascan.txt'}
 tfscanoutput=${tfscanoutput:-'tfsec.txt'}
 severity=${severity:-'LOW'}
+
+fmt=${fmt:-'true'}
+validate=${validate:-'true'}
+tflint=${tflint:-'true'}
+checkov=${checkov:-'true'}
+terrascan=${terrascan:-'false'}
+tfsec=${tfsec:-'false'}
+cleanup=${cleanup:-'false'}
+
 
 while [ $# -gt 0 ]; do
     if [[ $1 == *"--"* ]]; then
@@ -67,7 +95,7 @@ function checkov-simple () {
 function checkovoutput-file () {
   mkdir -p $scanoutput
   terraform-plan-to-json
-  checkov --version
+  echo "checkov verion" $(checkov --version)
   checkov \
   --framework cloudformation terraform terraform_plan \
   --soft-fail \
@@ -84,6 +112,7 @@ function install-terrascan () {
 
 function terrascan-scan () {
   mkdir -p $scanoutput
+  echo "terrascan" $(terrascan version)
   terrascan scan \
     --iac-type terraform \
     --severity $severity \
@@ -104,6 +133,7 @@ function install-tfsec () {
 
 function tfsec-scan () {
   mkdir -p $scanoutput
+  echo "checkov verion" $(tfsec --version)
   tfsec \
     --concise-output \
     --include-passed \
@@ -112,16 +142,38 @@ function tfsec-scan () {
     --out "$scanoutput/$tfscanoutput"
 }
 
-echo "Terraform Format"
-terraform fmt -recursive
-echo "Terraform Validate"
-terraform validate
-echo "Terraform Lint"
-terraform-lint
-echo "Checkov Scan"
-terraform-plan
-checkovoutput-file
-echo "Terrascan Scan"
-terrascan-scan
-echo "TFSec Scan"
-tfsec-scan
+if [ $fmt = "true" ]
+  then
+    echo "Performing Terraform Format..."
+    terraform fmt -recursive
+  fi
+if [ $validate = "true" ]
+  then
+    echo "Performing Terraform Validate..."
+    terraform validate
+  fi
+if [ $tflint = "true" ]
+  then
+    echo "Performing Terraform Lint..."
+    terraform-lint
+  fi
+if [ $checkov = "true" ]
+  then
+    echo "Performing Checkov Scan..."
+    terraform-plan
+    checkovoutput-file
+  fi
+if [ $terrascan = "true" ]
+  then
+    echo "Performing TerraScan Scan..."
+    terrascan-scan
+  fi
+if [ $tfsec = "true" ]
+  then
+    echo "Performing TFSec Scan..."
+    tfsec-scan
+  fi
+if [ $cleanup = "true" ]
+  then
+      echo "Remove Scan Result Files - Not available yet"
+  fi
