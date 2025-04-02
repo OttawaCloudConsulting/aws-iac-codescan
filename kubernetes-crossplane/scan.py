@@ -125,7 +125,7 @@ def render_kustomize(target_path: str, debug: bool = False) -> str:
     return output_file
 
 def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
-    """Runs Checkov on the given directory or file.
+    """Runs Checkov on the given directory or file, outputting JSON only.
 
     Args:
         scan_path (str): Path to scan (file or directory)
@@ -134,7 +134,6 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     output_dir = "checkov_output"
     os.makedirs(output_dir, exist_ok=True)
-    txt_file = os.path.join(output_dir, f"checkov_report_{timestamp}.txt")
     json_file = os.path.join(output_dir, f"checkov_report_{timestamp}.json")
 
     scan_flag = "--file" if os.path.isfile(scan_path) else "--directory"
@@ -147,20 +146,18 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
         "--output-file-path", json_file,
     ]
 
-    try:
-        with open(txt_file, "w", encoding="utf-8") as txt_out:
-            subprocess.run(
-                cmd,
-                check=True,
-                stdout=txt_out,
-                stderr=subprocess.STDOUT,
-                text=True
-            )
-        print(f"✅ Checkov scan completed.\nTXT Report: {txt_file}\nJSON Report: {json_file}")
-    except subprocess.CalledProcessError as error:
-        print("ERROR: Checkov scan failed.")
-        print(error)
-        sys.exit(1)
+    result = subprocess.run(
+        cmd,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    if result.returncode == 0:
+        print(f"✅ Checkov scan completed with no policy violations.\nJSON Report: {json_file}")
+    else:
+        print(f"⚠️  Checkov completed with violations (exit code {result.returncode}).")
+        print(f"JSON Report: {json_file}")
+
 
 def main() -> None:
     """Main entry point for the CLI tool."""
