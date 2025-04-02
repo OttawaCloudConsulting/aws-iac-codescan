@@ -144,7 +144,7 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
         scan_path (str): Path to scan (file or directory)
         debug (bool): Enable debug logging
     """
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     output_dir = "checkov_output"
     os.makedirs(output_dir, exist_ok=True)
     json_file = output_dir
@@ -155,6 +155,9 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
     cmd = [
         "checkov",
         "--framework", "kubernetes",
+        "--quiet",
+        "--compact",
+        "--soft-fail",
         scan_flag, scan_path,
         "--output", "json",
         "--output-file-path", json_file,
