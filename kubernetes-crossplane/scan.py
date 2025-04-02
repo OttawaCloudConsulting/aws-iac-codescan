@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import json
 from datetime import datetime
 from typing import Any, List
 
@@ -20,7 +21,7 @@ def configure_logging(debug: bool = False) -> None:
     Args:
         debug (bool): If True, override everything with DEBUG level.
     """
-    log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
+    log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     if debug:
         log_level = "DEBUG"
 
@@ -137,6 +138,52 @@ def render_kustomize(target_path: str, debug: bool = False) -> str:
     logging.debug("Rendered output saved to: %s", output_file)
     return output_file
 
+def generate_summary_markdown(json_path: str, output_dir: str) -> None:
+    """Generates a Markdown summary of Checkov scan results.
+
+    Args:
+        json_path (str): Path to Checkov results JSON file
+        output_dir (str): Directory to write the summary Markdown file
+    """
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logging.error("Failed to read JSON report: %s", e)
+        return
+
+    failed_checks = data.get("results", {}).get("failed_checks", [])
+    summary = data.get("summary", {})
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    filename_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    summary_file = os.path.join(output_dir, f"CHECKOV_SUMMARY_{filename_timestamp}.md")
+
+    with open(summary_file, "w", encoding="utf-8") as md:
+        md.write("# Checkov Scan Summary\n\n")
+        md.write("## Scan Metadata\n")
+        md.write(f"- **Timestamp:** {timestamp}\n")
+        md.write(f"- **Passed Checks:** {summary.get('passed', 0)}\n")
+        md.write(f"- **Failed Checks:** {summary.get('failed', 0)}\n")
+        md.write(f"- **Skipped Checks:** {summary.get('skipped', 0)}\n")
+        md.write(f"- **Parsing Errors:** {summary.get('parsing_errors', 0)}\n")
+        md.write(f"- **Resources Scanned:** {summary.get('resource_count', 0)}\n")
+        md.write(f"- **Checkov Version:** {summary.get('checkov_version', 'N/A')}\n\n")
+
+        if failed_checks:
+            md.write("## Failed Checks Detail\n\n")
+            for check in failed_checks:
+                md.write(f"### {check.get('check_id', 'UNKNOWN')} - {check.get('check_name', 'Unnamed Check')}\n")
+                md.write(f"- **File:** `{check.get('file_path', 'unknown')}`\n")
+                md.write(f"- **Resource:** `{check.get('resource', 'unknown')}`\n")
+                severity = check.get('severity') or "N/A"
+                md.write(f"- **Severity:** {severity}\n")
+                guideline = check.get('guideline')
+                if guideline:
+                    md.write(f"- **Guideline:** [{guideline}]({guideline})\n")
+                md.write("\n")
+
+    logging.info("Summary Markdown generated: %s", summary_file)
+
 def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
     """Runs Checkov on the given directory or file, outputting JSON only.
 
@@ -144,11 +191,9 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
         scan_path (str): Path to scan (file or directory)
         debug (bool): Enable debug logging
     """
-    # timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     output_dir = "checkov_output"
     os.makedirs(output_dir, exist_ok=True)
-    json_file = output_dir
-    logging.info("Checkov output will be written to: %s", json_file)
+    json_file = os.path.join(output_dir, "results_json.json")
 
     scan_flag = "--file" if os.path.isfile(scan_path) else "--directory"
 
@@ -160,7 +205,7 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
         "--soft-fail",
         scan_flag, scan_path,
         "--output", "json",
-        "--output-file-path", json_file,
+        "--output-file-path", output_dir,
     ]
 
     result = subprocess.run(
@@ -173,7 +218,9 @@ def run_checkov_scan(scan_path: str, debug: bool = False) -> None:
         logging.info("Checkov scan completed with no policy violations.")
     else:
         logging.warning("Checkov completed with violations (exit code %s).", result.returncode)
+
     logging.info("JSON Report: %s", json_file)
+    generate_summary_markdown(json_file, output_dir)
 
 def main() -> None:
     """Main entry point for the CLI tool."""
@@ -206,3 +253,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
