@@ -15,6 +15,7 @@
 ## 2. Project Directory Initialization
 
 - [ ] Create base directory structure:
+
   ```
   .
   ├── scan.py (or scan.sh)
@@ -23,7 +24,8 @@
   ├── config/
   └── checkov_output/
   ```
-- [ ] Create `.gitignore`, `README.md`, and `LICENSE`
+
+- [x] Create `.gitignore`, `README.md`, and `LICENSE`
 - [ ] Set up logging to stdout/stderr and optionally to file
 
 ## 3. Input Scanning Logic
@@ -80,4 +82,3 @@
 - [ ] Stub logic to support loading custom policies from `policies/`
 - [ ] Embed Git commit and branch info in reports
 - [ ] Add environment variable overrides for key paths
-
